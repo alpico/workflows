@@ -22,10 +22,14 @@ on:
         required: false
         type: string
         default: "In Review"
-      
+    secrets:
+        gh_token: "Token with which the GH client can be used"
+        required: true
+
 env:
   PR_NUM: ${{ github.event.number }}
   REPOSITORY: "${{ github.event.repository.name }}"
+  GH_TOKEN: ${{ secrets.gh_token }}
 
 jobs:
   MoveLinkedIssues:
