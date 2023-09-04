@@ -7,7 +7,7 @@ name: Move linked issues to "In Review"
 #     types: [opened, edited]
 
 on:
-  workflow_call
+  workflow_call:
     inputs:
       organization:
         description: "The name of the organization under which the project is saved"
