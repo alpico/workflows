@@ -1,0 +1,126 @@
+name: Move linked issues to "In Review"
+
+# This is what you probably want to have in your workflow YAML
+#
+# on:
+#   pull_request:
+#     types: [opened, edited]
+
+on:
+  workflow_call
+    inputs:
+      organization:
+        description: "The name of the organization under which the project is saved"
+        required: true
+        type: string
+      project:
+        description: "The name of the project within which the issue should be moved"
+        required: true
+        type: string
+      column:
+        description: "The column to which the issue should be moved"
+        required: false
+        type: string
+        default: "In Review"
+      
+env:
+  PR_NUM: ${{ github.event.number }}
+  REPOSITORY: "${{ github.event.repository.name }}"
+
+jobs:
+  MoveLinkedIssues:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          json=$(gh api graphql -f query='query FindProjectId {
+            organization(login: "${{ inputs.organization }}") {
+              projectsV2(last: 10, query: "${{ inputs.project }}") {
+                nodes {
+                  id
+                  number
+                }
+              }
+            }
+          }' | jq -c '.data.organization.projectsV2.nodes[0]')
+          echo "PROJECT_ID=$(echo ${json} | jq -c .id)" >> $GITHUB_ENV
+          echo "PROJECT_NUMBER=$(echo ${json} | jq -c .number)" >> $GITHUB_ENV
+
+      - run: |
+          echo -n 'ISSUE_IDS=' >> $GITHUB_ENV
+          gh api graphql -f query='query FindAffectedIssues {
+            repository(name: "${{ env.REPOSITORY }}", owner: "${{ inputs.organization }}") {
+              pullRequest(number: ${{ env.PR_NUM }}) {
+                closingIssuesReferences(last: 100) {
+                  edges {
+                    node {
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          }' | jq -c '[.data.repository.pullRequest.closingIssuesReferences.edges[].node.url]' >> $GITHUB_ENV
+
+      - if: ${{ env.ISSUE_IDS != '[]' }}
+        run: |
+          json=$(gh api graphql -f query='query GetFieldAndColumnId {
+            organization(login: "${{ inputs.organization }}") {
+              projectV2(number: ${{ env.PROJECT_NUMBER }}) {
+                items(last: 1) {
+                  edges {
+                    node {
+                      fieldValueByName(name: "Status") {
+                        ... on ProjectV2ItemFieldSingleSelectValue {
+                          field {
+                            ... on ProjectV2SingleSelectField {
+                              options(names: "${{ inputs.column }}") {
+                                id
+                              }
+                              id
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }' | jq -c '.data.organization.projectV2.items.edges[0].node.fieldValueByName.field')
+          echo 'COLUMN_ID='$(echo ${json} | jq -c '.options[0].id') >> $GITHUB_ENV
+          echo 'FIELD_ID='$(echo ${json} | jq -c '.id') >> $GITHUB_ENV
+
+      - if: ${{ env.ISSUE_IDS != '[]' }}
+        run: |
+          json=$(gh api graphql -f query='query GetItemId {
+            organization(login: "${{ inputs.organization }}") {
+              projectV2(number: ${{ env.PROJECT_NUMBER }}) {
+                items(last: 10) {
+                  nodes {
+                    id
+                    content {
+                      ... on Issue {
+                        url
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }' | jq -c '.data.organization.projectV2.items.nodes[]')
+          echo 'ITEM_IDS=('$(echo ${json} | jq -c 'select(.content.url as $a | ${{ env.ISSUE_IDS }} | index($a)) | .id')')' >> $GITHUB_ENV
+        
+      - if: ${{ env.ISSUE_IDS != '[]' }}
+        run: |
+          items=${{ env.ITEM_IDS }}
+          for item in ${items[*]}
+          do
+            echo "Updating $item..."
+            gh api graphql -f query='mutation MoveItemToInReview {
+              updateProjectV2ItemFieldValue(
+                input: {projectId: ${{ env.PROJECT_ID }}, value: { singleSelectOptionId: ${{ env.COLUMN_ID }}}, itemId: "'$item'", fieldId: ${{ env.FIELD_ID }}}
+              ) {
+                clientMutationId
+              }
+            }'
+          done
