@@ -66,7 +66,7 @@ jobs:
             }
           }' | jq -c '.data.repository.pullRequest')
           echo "PR_IS_DRAFT=$(echo ${json} | jq -c '.isDraft')" >> $GITHUB_ENV
-          echo "ISSUE_IDS=$(echo $json} | jq -c '[.closingIssuesReferences.edges[].node.url]' >> $GITHUB_ENV
+          echo "ISSUE_IDS=$(echo $json} | jq -c '[.closingIssuesReferences.edges[].node.url])' >> $GITHUB_ENV
 
       - if: ${{ !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
         run: |
