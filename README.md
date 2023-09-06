@@ -17,11 +17,7 @@ name: Move linked issues to "In Review"
 
 on:
   pull_request:
-    types: [opened, edited]
-
-env:
-  PR_NUM: ${{ github.event.number }}
-  REPOSITORY: "${{ github.event.repository.name }}"
+    types: [opened, edited, ready_for_review]
 
 jobs:
   MoveLinkedIssues:
@@ -31,7 +27,9 @@ jobs:
       project: "Fast-Deploy"
     secrets:
       gh_token: ${{ secrets.GH_TOKEN }}
-
 ```
 
-How this works with draft pull requests still needs to be explored.
+### Draft Pull Requests
+
+If the pull request is still a draft, then nothing happens.
+Once the pull request is marked as ready, the job is run.
