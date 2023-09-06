@@ -51,7 +51,6 @@ jobs:
           echo "PROJECT_NUMBER=$(echo ${json} | jq -c .number)" >> $GITHUB_ENV
 
       - run: |
-          echo -n 'ISSUE_IDS=' >> $GITHUB_ENV
           json=$(gh api graphql -f query='query FindAffectedIssues {
             repository(name: "${{ env.REPOSITORY }}", owner: "${{ inputs.organization }}") {
               pullRequest(number: ${{ env.PR_NUM }}) {
