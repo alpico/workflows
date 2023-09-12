@@ -1,0 +1,70 @@
+name: Close done issues
+
+# You probably want to use this in your workflow:
+# on:
+# projects_v2_item: edited
+
+
+on:
+  workflow_call:
+    inputs:
+      card_node_id:
+        description: "The node ID of the card which should be checked"
+        required: false
+        default: ${{ github.event.projects_v2_item.node_id }}
+        type: string
+      column_name:
+        description: "The column name to investigate"
+        required: false
+        default: "Status"
+        type: string
+      done_name:
+        description: "The name of the column in which done items are"
+        required: false
+        default: "Done"
+        type: string
+    secrets:
+      gh_token:
+        description: "Token with which the GH client can be used"
+        required: true
+
+env:
+  GH_TOKEN: ${{ secrets.gh_token }}
+
+jobs:
+  move:
+    runs-on: ubuntu-latest
+
+    steps:
+      - run: echo ${{ inputs.card_node_id }}
+      - run: echo ${{ inputs.column_name }}
+      - run: echo ${{ inputs.done_name }}
+      - run: |
+          json=$(gh api graphql -f query='query GetItemInfo {
+            node(id: "${{ inputs.card_node_id }}") {
+              ... on ProjectV2Item {
+                fieldValueByName(name: "${{ inputs.column_name }}") {
+                  ... on ProjectV2ItemFieldSingleSelectValue {
+                    name
+                    item {
+                      content {
+                        ... on Issue {
+                          id
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }' | jq -c '.data.node.fieldValueByName')
+          echo "STATUS_NAME=$(echo ${json} | jq -c .name)" >> $GITHUB_ENV
+          echo "ISSUE_ID=$(echo ${json} | jq -c .item.content.id)" >> $GITHUB_ENV
+      - run: echo ${{ env.STATUS_NAME }}
+      - if: env.STATUS_NAME == '"${{ inputs.done_name }}"'
+        run: |
+          gh api graphql -f query='mutation closeDoneIssue {
+            closeIssue(input: {issueId: ${{ env.ISSUE_ID }}}) {
+              clientMutationId
+            }
+          }'
