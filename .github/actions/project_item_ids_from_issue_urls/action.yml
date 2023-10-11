@@ -1,0 +1,42 @@
+name: Expects a list of issue URLs and returns the corresponding item IDs on the project board
+inputs:
+  organization:
+    description: "The name of the organization under which the project is saved"
+    required: true
+    type: string
+  project_number:
+    description: "The number of the project within the organization"
+    required: true
+    type: string
+  issue_ids:
+    description: "A JSON list of URLs of GitHub issues"
+    required: true
+    type: string
+outputs:
+  item_ids:
+    description: "A list of item IDs of the corresponding input issues of the project specified"
+    value: ${{ steps.step.outputs.item_ids  }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: step
+      shell: bash
+      run: |
+        json=$(gh api graphql -f query='query GetItemId {
+          organization(login: "${{ inputs.organization }}") {
+            projectV2(number: ${{ inputs.project_number }}) {
+              items(last: 10) {
+                nodes {
+                  id
+                  content {
+                    ... on Issue {
+                      url
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }' | jq -c '.data.organization.projectV2.items.nodes[]')
+        echo 'item_ids=('$(echo ${json} | jq -c 'select(.content.url as $a | ${{ inputs.issue_ids }} | index($a)) | .id')')' >> $GITHUB_OUTPUT

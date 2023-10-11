@@ -1,0 +1,44 @@
+name: Find issues which will be closed by a PR
+inputs:
+  organization:
+    description: "The name of the organization under which the project is saved"
+    required: true
+    type: string
+  repository:
+    description: "The name of the repository in which the PR is located"
+    required: true
+    type: string
+  pr_num:
+    description: "The number of the PR within the repository"
+    required: true
+    type: string
+outputs:
+  is_draft:
+    description: "Whether this PR is a draft"
+    value: ${{ steps.step.outputs.is_draft  }}
+  issue_ids:
+    description: "A JSON list of URLs of the issues closed by this PR"
+    value: ${{ steps.step.outputs.issue_ids  }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: step
+      shell: bash
+      run: |
+        json=$(gh api graphql -f query='query FindAffectedIssues {
+          repository(name: "${{ inputs.repository }}", owner: "${{ inputs.organization }}") {
+            pullRequest(number: ${{ inputs.pr_num }}) {
+              isDraft
+              closingIssuesReferences(last: 100) {
+                edges {
+                  node {
+                    url
+                  }
+                }
+              }
+            }
+          }
+        }' | jq -c '.data.repository.pullRequest')
+        echo "is_draft=$(echo ${json} | jq -c '.isDraft')" >> $GITHUB_OUTPUT
+        echo "issue_ids=$(echo ${json} | jq -c '[.closingIssuesReferences.edges[].node.url]')" >> $GITHUB_OUTPUT

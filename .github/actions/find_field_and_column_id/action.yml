@@ -1,0 +1,54 @@
+name: Find the ID of the column on a project board and the ID of the field which sets it
+inputs:
+  organization:
+    description: "The name of the organization under which the project is saved"
+    required: true
+    type: string
+  project_number:
+    description: "The number of the project within the organization"
+    required: true
+    type: string
+  column:
+    description: "The column to which the issue should be moved"
+    required: true
+    type: string
+outputs:
+  column_id:
+    description: "The ID of the Status column you're searching for"
+    value: ${{ steps.step.outputs.column_id  }}
+  field_id:
+    description: "The ID of the field in which the Status is set"
+    value: ${{ steps.step.outputs.field_id  }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: step
+      shell: bash
+      run: |
+        json=$(gh api graphql -f query='query GetFieldAndColumnId {
+          organization(login: "${{ inputs.organization }}") {
+            projectV2(number: ${{ inputs.project_number }}) {
+              items(last: 1) {
+                edges {
+                  node {
+                    fieldValueByName(name: "Status") {
+                      ... on ProjectV2ItemFieldSingleSelectValue {
+                        field {
+                          ... on ProjectV2SingleSelectField {
+                            options(names: "${{ inputs.column }}") {
+                              id
+                            }
+                            id
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }' | jq -c '.data.organization.projectV2.items.edges[0].node.fieldValueByName.field')
+        echo 'column_id='$(echo ${json} | jq -c '.options[0].id') >> $GITHUB_OUTPUT
+        echo 'field_id='$(echo ${json} | jq -c '.id') >> $GITHUB_OUTPUT

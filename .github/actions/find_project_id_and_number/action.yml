@@ -1,0 +1,36 @@
+name: Find the project ID and number
+inputs:
+  organization:
+    description: "The name of the organization under which the project is saved"
+    required: true
+    type: string
+  project:
+    description: "The name of the project you want to find"
+    required: true
+    type: string
+outputs:
+  project_id:
+    description: "The ID of the project you wanted to find"
+    value: ${{ steps.step.outputs.project_id  }}
+  project_number:
+    description: "The number of the project you wanted to find"
+    value: ${{ steps.step.outputs.project_number  }}
+
+runs:
+  using: "composite"
+  steps:
+    - id: step
+      shell: bash
+      run: |
+        json=$(gh api graphql -f query='query FindProjectId {
+          organization(login: "${{ inputs.organization }}") {
+            projectsV2(last: 10, query: "${{ inputs.project }}") {
+              nodes {
+                id
+                number
+              }
+            }
+          }
+        }' | jq -c '.data.organization.projectsV2.nodes[0]')
+        echo "project_id=$(echo ${json} | jq -c .id)" >> $GITHUB_OUTPUT
+        echo "project_number=$(echo ${json} | jq -c .number)" >> $GITHUB_OUTPUT

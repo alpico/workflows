@@ -1,0 +1,41 @@
+name: Expects a list of item IDs for a project board and moves these items into a column
+inputs:
+  organization:
+    description: "The name of the organization under which the project is saved"
+    required: true
+    type: string
+  project_id:
+    description: "The ID of the project on which the items should be moved"
+    required: true
+    type: string
+  item_ids:
+    description: "A list of item IDs for items on the project board"
+    required: true
+    type: string
+  column_id:
+    description: "The ID of the Status column to which the items should be moved"
+    required: true
+    type: string
+  field_id:
+    description: "The ID of the field on which the Status column is set in each item"
+    required: true
+    type: string
+
+runs:
+  using: "composite"
+  steps:
+    - id: step
+      shell: bash
+      run: |
+        items=${{ inputs.item_ids }}
+        for item in ${items[*]}
+        do
+          echo "Updating $item..."
+          gh api graphql -f query='mutation MoveItemToInReview {
+            updateProjectV2ItemFieldValue(
+              input: {projectId: ${{ inputs.project_id }}, value: { singleSelectOptionId: ${{ inputs.column_id }} }, itemId: "'$item'", fieldId: ${{ inputs.field_id }} }
+            ) {
+              clientMutationId
+            }
+          }'
+        done
