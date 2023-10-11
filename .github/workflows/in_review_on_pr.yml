@@ -69,11 +69,7 @@ jobs:
           echo "PR_IS_DRAFT=$(echo ${json} | jq -c '.isDraft')" >> $GITHUB_ENV
           echo "ISSUE_IDS=$(echo ${json} | jq -c '[.closingIssuesReferences.edges[].node.url]')" >> $GITHUB_ENV
 
-      - run: |
-          echo ${{ env.PR_IS_DRAFT }}
-          echo ${{ env.ISSUE_IDS }}
-
-      - if: ${{ !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
+      - if: ${{ !(env.PR_IS_DRAFT == 'true') && env.ISSUE_IDS != '[]' }}
         run: |
           json=$(gh api graphql -f query='query GetFieldAndColumnId {
             organization(login: "${{ inputs.organization }}") {
@@ -102,7 +98,7 @@ jobs:
           echo 'COLUMN_ID='$(echo ${json} | jq -c '.options[0].id') >> $GITHUB_ENV
           echo 'FIELD_ID='$(echo ${json} | jq -c '.id') >> $GITHUB_ENV
 
-      - if: ${{ !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
+      - if: ${{ !(env.PR_IS_DRAFT == 'true') && env.ISSUE_IDS != '[]' }}
         run: |
           json=$(gh api graphql -f query='query GetItemId {
             organization(login: "${{ inputs.organization }}") {
@@ -122,7 +118,7 @@ jobs:
           }' | jq -c '.data.organization.projectV2.items.nodes[]')
           echo 'ITEM_IDS=('$(echo ${json} | jq -c 'select(.content.url as $a | ${{ env.ISSUE_IDS }} | index($a)) | .id')')' >> $GITHUB_ENV
 
-      - if: ${{ !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
+      - if: ${{ !(env.PR_IS_DRAFT == 'true') && env.ISSUE_IDS != '[]' }}
         run: |
           items=${{ env.ITEM_IDS }}
           for item in ${items[*]}
