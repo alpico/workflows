@@ -60,9 +60,11 @@ View any of the actions in `.github/actions/` for examples.
 
 ### Starter Workflows
 
+**WARNING: STARTER WORKFLOWS ONLY WORK IN PUBLIC REPOSITORIES**
+
 These workflows always have an intended trigger in mind.
 To speed up setting up such a workflow, we can create templates for
 these workflows called [Starter Workflows](https://docs.github.com/en/actions/using-workflows/creating-starter-workflows-for-your-organization).
 
-These need to go into our [.github repository](https://github.com/alpico/.github/tree/main/workflow-templates).
-Users can then easily select one of these when creating a new workflow in a repo.
+These need to go into our [`.github` repository](https://github.com/alpico/.github/tree/main/workflow-templates).
+Users can then easily select one of these when creating a new workflow in a repo (unless the repo is private).
