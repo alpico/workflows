@@ -29,7 +29,7 @@ on:
           required: true
 
 env:
-  PR_NUM: ${{ github.event.number }}
+  PR_NUM: ${{ github.event.pull_request.number }}
   REPOSITORY: "${{ github.event.repository.name }}"
   GH_TOKEN: ${{ secrets.gh_token }}
   NEEDS_CHANGES: ${{ github.event.review.state == 'changes_requested' }}
@@ -38,100 +38,45 @@ jobs:
   MoveLinkedIssues:
     runs-on: ubuntu-latest
     steps:
-      - if: ${{ env.NEEDS_CHANGES }}
-        run: |
-          json=$(gh api graphql -f query='query FindProjectId {
-            organization(login: "${{ inputs.organization }}") {
-              projectsV2(last: 10, query: "${{ inputs.project }}") {
-                nodes {
-                  id
-                  number
-                }
-              }
-            }
-          }' | jq -c '.data.organization.projectsV2.nodes[0]')
-          echo "PROJECT_ID=$(echo ${json} | jq -c .id)" >> $GITHUB_ENV
-          echo "PROJECT_NUMBER=$(echo ${json} | jq -c .number)" >> $GITHUB_ENV
+      - if: env.NEEDS_CHANGES
+        id: find_project_id_and_number
+        uses: alpico/workflows/.github/actions/find_project_id_and_number@experiment
+        with:
+          organization: ${{ inputs.organization }}
+          project: ${{ inputs.project }}
 
-      - if: ${{ env.NEEDS_CHANGES }}
-        run: |
-          json=$(gh api graphql -f query='query FindAffectedIssues {
-            repository(name: "${{ env.REPOSITORY }}", owner: "${{ inputs.organization }}") {
-              pullRequest(number: ${{ env.PR_NUM }}) {
-                isDraft
-                closingIssuesReferences(last: 100) {
-                  edges {
-                    node {
-                      url
-                    }
-                  }
-                }
-              }
-            }
-          }' | jq -c '.data.repository.pullRequest')
-          echo "PR_IS_DRAFT=$(echo ${json} | jq -c '.isDraft')" >> $GITHUB_ENV
-          echo "ISSUE_IDS=$(echo $json} | jq -c '[.closingIssuesReferences.edges[].node.url]')" >> $GITHUB_ENV
+      - if: env.NEEDS_CHANGES
+        id: find_closing_issues
+        uses: alpico/workflows/.github/actions/find_closing_issues@experiment
+        with:
+          organization: ${{ inputs.organization }}
+          repository: ${{ env.REPOSITORY }}
+          pr_num: ${{ env.PR_NUM }}
 
-      - if: ${{ env.NEEDS_CHANGES && !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
-        run: |
-          json=$(gh api graphql -f query='query GetFieldAndColumnId {
-            organization(login: "${{ inputs.organization }}") {
-              projectV2(number: ${{ env.PROJECT_NUMBER }}) {
-                items(last: 1) {
-                  edges {
-                    node {
-                      fieldValueByName(name: "Status") {
-                        ... on ProjectV2ItemFieldSingleSelectValue {
-                          field {
-                            ... on ProjectV2SingleSelectField {
-                              options(names: "${{ inputs.column }}") {
-                                id
-                              }
-                              id
-                            }
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }' | jq -c '.data.organization.projectV2.items.edges[0].node.fieldValueByName.field')
-          echo 'COLUMN_ID='$(echo ${json} | jq -c '.options[0].id') >> $GITHUB_ENV
-          echo 'FIELD_ID='$(echo ${json} | jq -c '.id') >> $GITHUB_ENV
+      - run: echo "EXIT_EARLY=${{ !env.NEEDS_CHANGES || steps.find_closing_issues.outputs.issue_ids == '[]' }}" >> $GITHUB_ENV
 
-      - if: ${{ env.NEEDS_CHANGES && !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
-        run: |
-          json=$(gh api graphql -f query='query GetItemId {
-            organization(login: "${{ inputs.organization }}") {
-              projectV2(number: ${{ env.PROJECT_NUMBER }}) {
-                items(last: 10) {
-                  nodes {
-                    id
-                    content {
-                      ... on Issue {
-                        url
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          }' | jq -c '.data.organization.projectV2.items.nodes[]')
-          echo 'ITEM_IDS=('$(echo ${json} | jq -c 'select(.content.url as $a | ${{ env.ISSUE_IDS }} | index($a)) | .id')')' >> $GITHUB_ENV
+      - if: env.EXIT_EARLY != 'true'
+        id: find_field_and_column_id
+        uses: alpico/workflows/.github/actions/find_field_and_column_id@experiment
+        with:
+          organization: ${{ inputs.organization }}
+          project_number: ${{ steps.find_project_id_and_number.outputs.project_number }}
+          column: ${{ inputs.column }}
 
-      - if: ${{ env.NEEDS_CHANGES && !env.PR_IS_DRAFT && env.ISSUE_IDS != '[]' }}
-        run: |
-          items=${{ env.ITEM_IDS }}
-          for item in ${items[*]}
-          do
-            echo "Updating $item..."
-            gh api graphql -f query='mutation MoveItemToInReview {
-              updateProjectV2ItemFieldValue(
-                input: {projectId: ${{ env.PROJECT_ID }}, value: { singleSelectOptionId: ${{ env.COLUMN_ID }}}, itemId: "'$item'", fieldId: ${{ env.FIELD_ID }}}
-              ) {
-                clientMutationId
-              }
-            }'
-          done
+      - if: env.EXIT_EARLY != 'true'
+        id: project_item_ids_from_issue_urls
+        uses: alpico/workflows/.github/actions/project_item_ids_from_issue_urls@experiment
+        with:
+          organization: ${{ inputs.organization }}
+          project_number: ${{ steps.find_project_id_and_number.outputs.project_number }}
+          issue_ids: ${{ steps.find_closing_issues.outputs.issue_ids }}
+
+      - if: env.EXIT_EARLY != 'true'
+        id: move_items_to_column
+        uses: alpico/workflows/.github/actions/move_items_to_column@experiment
+        with:
+          organization: ${{ inputs.organization }}
+          project_id: ${{ steps.find_project_id_and_number.outputs.project_id }}
+          item_ids: ${{ steps.project_item_ids_from_issue_urls.outputs.item_ids }}
+          column_id: ${{ steps.find_field_and_column_id.outputs.column_id }}
+          field_id: ${{ steps.find_field_and_column_id.outputs.field_id }}
