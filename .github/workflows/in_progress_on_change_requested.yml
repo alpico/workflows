@@ -40,14 +40,14 @@ jobs:
     steps:
       - if: env.NEEDS_CHANGES
         id: find_project_id_and_number
-        uses: alpico/workflows/.github/actions/find_project_id_and_number@experiment
+        uses: alpico/workflows/.github/actions/find_project_id_and_number@main
         with:
           organization: ${{ inputs.organization }}
           project: ${{ inputs.project }}
 
       - if: env.NEEDS_CHANGES
         id: find_closing_issues
-        uses: alpico/workflows/.github/actions/find_closing_issues@experiment
+        uses: alpico/workflows/.github/actions/find_closing_issues@main
         with:
           organization: ${{ inputs.organization }}
           repository: ${{ env.REPOSITORY }}
@@ -57,7 +57,7 @@ jobs:
 
       - if: env.EXIT_EARLY != 'true'
         id: find_field_and_column_id
-        uses: alpico/workflows/.github/actions/find_field_and_column_id@experiment
+        uses: alpico/workflows/.github/actions/find_field_and_column_id@main
         with:
           organization: ${{ inputs.organization }}
           project_number: ${{ steps.find_project_id_and_number.outputs.project_number }}
@@ -65,7 +65,7 @@ jobs:
 
       - if: env.EXIT_EARLY != 'true'
         id: project_item_ids_from_issue_urls
-        uses: alpico/workflows/.github/actions/project_item_ids_from_issue_urls@experiment
+        uses: alpico/workflows/.github/actions/project_item_ids_from_issue_urls@main
         with:
           organization: ${{ inputs.organization }}
           project_number: ${{ steps.find_project_id_and_number.outputs.project_number }}
@@ -73,7 +73,7 @@ jobs:
 
       - if: env.EXIT_EARLY != 'true'
         id: move_items_to_column
-        uses: alpico/workflows/.github/actions/move_items_to_column@experiment
+        uses: alpico/workflows/.github/actions/move_items_to_column@main
         with:
           organization: ${{ inputs.organization }}
           project_id: ${{ steps.find_project_id_and_number.outputs.project_id }}
