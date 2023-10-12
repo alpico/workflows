@@ -29,7 +29,7 @@ on:
           required: true
 
 env:
-  PR_NUM: ${{ github.event.number }}
+  PR_NUM: ${{ github.event.pull_request.number }}
   REPOSITORY: "${{ github.event.repository.name }}"
   GH_TOKEN: ${{ secrets.gh_token }}
   NEEDS_CHANGES: ${{ github.event.review.state == 'changes_requested' }}
