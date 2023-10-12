@@ -59,7 +59,7 @@ jobs:
 
       - run: echo "EXIT_EARLY=${{ steps.is_pr_draft.outputs.is_draft == 'true' || steps.find_closing_issues.outputs.issue_ids == '[]' }}" >> $GITHUB_ENV
 
-      - if: ${{ env.EXIT_EARLY != 'true' }}
+      - if: env.EXIT_EARLY != 'true'
         id: find_field_and_column_id
         uses: alpico/workflows/.github/actions/find_field_and_column_id@experiment
         with:
@@ -67,7 +67,7 @@ jobs:
           project_number: ${{ steps.find_project_id_and_number.outputs.project_number }}
           column: ${{ inputs.column }}
 
-      - if: ${{ env.EXIT_EARLY != 'true' }}
+      - if: env.EXIT_EARLY != 'true'
         id: project_item_ids_from_issue_urls
         uses: alpico/workflows/.github/actions/project_item_ids_from_issue_urls@experiment
         with:
@@ -75,7 +75,7 @@ jobs:
           project_number: ${{ steps.find_project_id_and_number.outputs.project_number }}
           issue_ids: ${{ steps.find_closing_issues.outputs.issue_ids }}
 
-      - if: ${{ env.EXIT_EARLY != 'true' }}
+      - if: env.EXIT_EARLY != 'true'
         id: move_items_to_column
         uses: alpico/workflows/.github/actions/move_items_to_column@experiment
         with:
